@@ -14,7 +14,7 @@
    - require like normal `var request = require('path/to/superagent.js')`
 
 ## API
-
+see [SuperAgent Docs Site](http://visionmedia.github.io/superagent/)
 
 ## Credit
 Based on [superagent](https://github.com/visionmedia/superagent) with a XHR polyfill for Titanium.
