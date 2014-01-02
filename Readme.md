@@ -9,6 +9,10 @@
 
     $ component install tipm/superagent
 
+  Standalone install
+   - copy `superagent.js` to your project
+   - require like normal `var request = require('path/to/superagent.js')`
+
 ## API
 
 
