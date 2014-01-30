@@ -8,4 +8,7 @@ components: component.json
 clean:
 	rm -fr build components template.js
 
+lib: clean components index.js
+	@component build -s superagent -n superagent -o ./
+
 .PHONY: clean

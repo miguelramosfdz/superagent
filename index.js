@@ -1,11 +1,11 @@
 
 // patch global scope with web XHR polyfill
 
-require('tipm-xhrpoly');
+require('xhrpoly');
 
 //expose superagent
 
-var Agent = module.exports = require('visionmedia-superagent');
+var Agent = module.exports = require('superagent');
 
 /**
  * attach file to Request

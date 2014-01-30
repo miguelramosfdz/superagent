@@ -47,18 +47,10 @@ function require(path, parent, orig) {
 require.modules = {};
 
 /**
- * Main definitions.
+ * Registered aliases.
  */
 
-require.mains = {};
-
-/**
- * Define a main.
- */
-
-require.main = function(name, path){
-  require.mains[name] = path;
-};
+require.aliases = {};
 
 /**
  * Resolve `path`.
@@ -75,7 +67,7 @@ require.main = function(name, path){
  */
 
 require.resolve = function(path) {
-  if ('/' == path.charAt(0)) path = path.slice(1);
+  if (path.charAt(0) === '/') path = path.slice(1);
 
   var paths = [
     path,
@@ -85,15 +77,10 @@ require.resolve = function(path) {
     path + '/index.json'
   ];
 
-  if (require.mains[path]) {
-    paths = [path + '/' + require.mains[path]];
-  }
-
-  for (var i = 0, len = paths.length; i < len; i++) {
+  for (var i = 0; i < paths.length; i++) {
     var path = paths[i];
-    if (require.modules.hasOwnProperty(path)) {
-      return path;
-    }
+    if (require.modules.hasOwnProperty(path)) return path;
+    if (require.aliases.hasOwnProperty(path)) return require.aliases[path];
   }
 };
 
@@ -114,7 +101,7 @@ require.normalize = function(curr, path) {
   curr = curr.split('/');
   path = path.split('/');
 
-  for (var i = 0, len = path.length; i < len; ++i) {
+  for (var i = 0; i < path.length; ++i) {
     if ('..' == path[i]) {
       curr.pop();
     } else if ('.' != path[i] && '' != path[i]) {
@@ -138,6 +125,21 @@ require.register = function(path, definition) {
 };
 
 /**
+ * Alias a module definition.
+ *
+ * @param {String} from
+ * @param {String} to
+ * @api private
+ */
+
+require.alias = function(from, to) {
+  if (!require.modules.hasOwnProperty(from)) {
+    throw new Error('Failed to alias "' + from + '", it does not exist');
+  }
+  require.aliases[to] = from;
+};
+
+/**
  * Return a require function relative to the `parent` path.
  *
  * @param {String} parent
@@ -146,7 +148,7 @@ require.register = function(path, definition) {
  */
 
 require.relative = function(parent) {
-  var root = require.normalize(parent, '..');
+  var p = require.normalize(parent, '..');
 
   /**
    * lastIndexOf helper.
@@ -176,7 +178,15 @@ require.relative = function(parent) {
   localRequire.resolve = function(path) {
     var c = path.charAt(0);
     if ('/' == c) return path.slice(1);
-    if ('.' == c) return require.normalize(root, path);
+    if ('.' == c) return require.normalize(p, path);
+
+    // resolve deps by returning
+    // the dep in the nearest "deps"
+    // directory
+    var segs = parent.split('/');
+    var i = lastIndexOf(segs, 'deps') + 1;
+    if (!i) i = 0;
+    path = segs.slice(0, i + 1).join('/') + '/deps/' + path;
     return path;
   };
 
@@ -357,7 +367,7 @@ Emitter.prototype.hasListeners = function(event){
 };
 
 });
-require.register("RedVentures-reduce/index.js", function(exports, require, module){
+require.register("component-reduce/index.js", function(exports, require, module){
 
 /**
  * Reduce `arr` with `fn`.
@@ -388,8 +398,8 @@ require.register("visionmedia-superagent/lib/client.js", function(exports, requi
  * Module dependencies.
  */
 
-var Emitter = require("component-emitter");
-var reduce = require("RedVentures-reduce");
+var Emitter = require('emitter');
+var reduce = require('reduce');
 
 /**
  * Root reference for iframes.
@@ -1380,13 +1390,13 @@ request.put = function(url, data, fn){
 module.exports = request;
 
 });
-require.main("visionmedia-superagent", "lib/client.js")
 require.register("tipm-xhrpoly/index.js", function(exports, require, module){
-
 /**
  * xhr polyfill to make titaniums XHR library
  * compatible with web based XHR libraries
  */
+
+var Emitter = require('emitter');
 
 // Global Context
 
@@ -1409,20 +1419,38 @@ module.exports = XMLHttpRequest;
  */
 
 function XMLHttpRequest() {
-
+  var self = this;
   // titanium xhr client
-
   this._proxy =  Ti.Network.createHTTPClient();
-
-  // mapping for compatible functions
-
-  this.getResponseHeader = this._proxy.getResponseHeader;
-  this.open = this._proxy.open;
-  this.send = this._proxy.send;
-  this.setRequestHeader = this._proxy.setRequestHeader;
-  this.abort = this._proxy.abort;
+  this.upload = {
+    onprogress: function(){}
+  }
+  this._proxy.onsendstream = function(e){
+    self.upload.onprogress({loaded:e.progress, total:1});
+  }
 }
 
+XMLHttpRequest.prototype.__proto__ = Emitter.prototype;
+
+XMLHttpRequest.prototype.abort = function() {
+  this._proxy.abort();
+};
+
+XMLHttpRequest.prototype.open = function(method, url, async) {
+  this._proxy.open(method, url, async);
+};
+
+XMLHttpRequest.prototype.getResponseHeader = function(name) {
+  return this._proxy.getResponseHeader(name);
+};
+
+XMLHttpRequest.prototype.send = function(data) {
+  this._proxy.send(data);
+};
+
+XMLHttpRequest.prototype.setRequestHeader = function(key, val) {
+  this._proxy.setRequestHeader(key, val);
+};
 
 Object.defineProperties(XMLHttpRequest.prototype, {
    'onreadystatechange' : {
@@ -1461,11 +1489,11 @@ require.register("superagent/index.js", function(exports, require, module){
 
 // patch global scope with web XHR polyfill
 
-require("tipm-xhrpoly");
+require('xhrpoly');
 
 //expose superagent
 
-var Agent = module.exports = require("visionmedia-superagent");
+var Agent = module.exports = require('superagent');
 
 /**
  * attach file to Request
@@ -1493,10 +1521,25 @@ Agent.Request.prototype.attach = function(name, path, filename) {
 
 
 
-if (typeof exports == "object") {
+
+require.alias("visionmedia-superagent/lib/client.js", "superagent/deps/superagent/lib/client.js");
+require.alias("visionmedia-superagent/lib/client.js", "superagent/deps/superagent/index.js");
+require.alias("visionmedia-superagent/lib/client.js", "superagent/index.js");
+require.alias("component-emitter/index.js", "visionmedia-superagent/deps/emitter/index.js");
+
+require.alias("component-reduce/index.js", "visionmedia-superagent/deps/reduce/index.js");
+
+require.alias("visionmedia-superagent/lib/client.js", "visionmedia-superagent/index.js");
+require.alias("tipm-xhrpoly/index.js", "superagent/deps/xhrpoly/index.js");
+require.alias("tipm-xhrpoly/index.js", "superagent/deps/xhrpoly/index.js");
+require.alias("tipm-xhrpoly/index.js", "xhrpoly/index.js");
+require.alias("component-emitter/index.js", "tipm-xhrpoly/deps/emitter/index.js");
+
+require.alias("tipm-xhrpoly/index.js", "tipm-xhrpoly/index.js");
+require.alias("superagent/index.js", "superagent/index.js");if (typeof exports == "object") {
   module.exports = require("superagent");
 } else if (typeof define == "function" && define.amd) {
-  define(function(){ return require("superagent"); });
+  define([], function(){ return require("superagent"); });
 } else {
   this["superagent"] = require("superagent");
 }})();
