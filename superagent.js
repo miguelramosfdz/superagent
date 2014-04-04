@@ -1,40 +1,22 @@
+
 ;(function(){
 
 /**
- * Require the given path.
+ * Require the module at `name`.
  *
- * @param {String} path
+ * @param {String} name
  * @return {Object} exports
  * @api public
  */
 
-function require(path, parent, orig) {
-  var resolved = require.resolve(path);
+function require(name) {
+  var module = require.modules[name];
+  if (!module) throw new Error('failed to require "' + name + '"');
 
-  // lookup failed
-  if (null == resolved) {
-    orig = orig || path;
-    parent = parent || 'root';
-    var err = new Error('Failed to require "' + orig + '" from "' + parent + '"');
-    err.path = orig;
-    err.parent = parent;
-    err.require = true;
-    throw err;
-  }
-
-  var module = require.modules[resolved];
-
-  // perform real require()
-  // by invoking the module's
-  // registered function
-  if (!module._resolving && !module.exports) {
-    var mod = {};
-    mod.exports = {};
-    mod.client = mod.component = true;
-    module._resolving = true;
-    module.call(this, mod.exports, require.relative(resolved), mod);
-    delete module._resolving;
-    module.exports = mod.exports;
+  if (module.definition) {
+    module.client = module.component = true;
+    module.definition.call(this, module.exports = {}, module);
+    delete module.definition;
   }
 
   return module.exports;
@@ -47,160 +29,34 @@ function require(path, parent, orig) {
 require.modules = {};
 
 /**
- * Registered aliases.
- */
-
-require.aliases = {};
-
-/**
- * Resolve `path`.
+ * Register module at `name` with callback `definition`.
  *
- * Lookup:
- *
- *   - PATH/index.js
- *   - PATH.js
- *   - PATH
- *
- * @param {String} path
- * @return {String} path or null
- * @api private
- */
-
-require.resolve = function(path) {
-  if (path.charAt(0) === '/') path = path.slice(1);
-
-  var paths = [
-    path,
-    path + '.js',
-    path + '.json',
-    path + '/index.js',
-    path + '/index.json'
-  ];
-
-  for (var i = 0; i < paths.length; i++) {
-    var path = paths[i];
-    if (require.modules.hasOwnProperty(path)) return path;
-    if (require.aliases.hasOwnProperty(path)) return require.aliases[path];
-  }
-};
-
-/**
- * Normalize `path` relative to the current path.
- *
- * @param {String} curr
- * @param {String} path
- * @return {String}
- * @api private
- */
-
-require.normalize = function(curr, path) {
-  var segs = [];
-
-  if ('.' != path.charAt(0)) return path;
-
-  curr = curr.split('/');
-  path = path.split('/');
-
-  for (var i = 0; i < path.length; ++i) {
-    if ('..' == path[i]) {
-      curr.pop();
-    } else if ('.' != path[i] && '' != path[i]) {
-      segs.push(path[i]);
-    }
-  }
-
-  return curr.concat(segs).join('/');
-};
-
-/**
- * Register module at `path` with callback `definition`.
- *
- * @param {String} path
+ * @param {String} name
  * @param {Function} definition
  * @api private
  */
 
-require.register = function(path, definition) {
-  require.modules[path] = definition;
+require.register = function (name, definition) {
+  require.modules[name] = {
+    definition: definition
+  };
 };
 
 /**
- * Alias a module definition.
+ * Define a module's exports immediately with `exports`.
  *
- * @param {String} from
- * @param {String} to
+ * @param {String} name
+ * @param {Generic} exports
  * @api private
  */
 
-require.alias = function(from, to) {
-  if (!require.modules.hasOwnProperty(from)) {
-    throw new Error('Failed to alias "' + from + '", it does not exist');
-  }
-  require.aliases[to] = from;
+require.define = function (name, exports) {
+  require.modules[name] = {
+    exports: exports
+  };
 };
 
-/**
- * Return a require function relative to the `parent` path.
- *
- * @param {String} parent
- * @return {Function}
- * @api private
- */
-
-require.relative = function(parent) {
-  var p = require.normalize(parent, '..');
-
-  /**
-   * lastIndexOf helper.
-   */
-
-  function lastIndexOf(arr, obj) {
-    var i = arr.length;
-    while (i--) {
-      if (arr[i] === obj) return i;
-    }
-    return -1;
-  }
-
-  /**
-   * The relative require() itself.
-   */
-
-  function localRequire(path) {
-    var resolved = localRequire.resolve(path);
-    return require(resolved, parent, path);
-  }
-
-  /**
-   * Resolve relative to the parent.
-   */
-
-  localRequire.resolve = function(path) {
-    var c = path.charAt(0);
-    if ('/' == c) return path.slice(1);
-    if ('.' == c) return require.normalize(p, path);
-
-    // resolve deps by returning
-    // the dep in the nearest "deps"
-    // directory
-    var segs = parent.split('/');
-    var i = lastIndexOf(segs, 'deps') + 1;
-    if (!i) i = 0;
-    path = segs.slice(0, i + 1).join('/') + '/deps/' + path;
-    return path;
-  };
-
-  /**
-   * Check if module is defined at `path`.
-   */
-
-  localRequire.exists = function(path) {
-    return require.modules.hasOwnProperty(localRequire.resolve(path));
-  };
-
-  return localRequire;
-};
-require.register("component-emitter/index.js", function(exports, require, module){
+require.register("component~emitter@1.1.2", function (exports, module) {
 
 /**
  * Expose `Emitter`.
@@ -367,7 +223,8 @@ Emitter.prototype.hasListeners = function(event){
 };
 
 });
-require.register("component-reduce/index.js", function(exports, require, module){
+
+require.register("component~reduce@1.0.1", function (exports, module) {
 
 /**
  * Reduce `arr` with `fn`.
@@ -393,13 +250,14 @@ module.exports = function(arr, fn, initial){
   return curr;
 };
 });
-require.register("visionmedia-superagent/lib/client.js", function(exports, require, module){
+
+require.register("visionmedia~superagent@0.17.0", function (exports, module) {
 /**
  * Module dependencies.
  */
 
-var Emitter = require('emitter');
-var reduce = require('reduce');
+var Emitter = require("component~emitter@1.1.2");
+var reduce = require("component~reduce@1.0.1");
 
 /**
  * Root reference for iframes.
@@ -859,6 +717,15 @@ function Request(method, url) {
 Emitter(Request.prototype);
 
 /**
+ * Allow for extension
+ */
+
+Request.prototype.use = function(fn) {
+  fn(this);
+  return this;
+}
+
+/**
  * Set timeout to `ms`.
  *
  * @param {Number} ms
@@ -1239,6 +1106,7 @@ Request.prototype.end = function(fn){
   }
 
   // send stuff
+  this.emit('request', this);
   xhr.send(data);
   return this;
 };
@@ -1390,13 +1258,14 @@ request.put = function(url, data, fn){
 module.exports = request;
 
 });
-require.register("tipm-xhrpoly/index.js", function(exports, require, module){
+
+require.register("tipm~xhrpoly@master", function (exports, module) {
 /**
  * xhr polyfill to make titaniums XHR library
  * compatible with web based XHR libraries
  */
 
-var Emitter = require('emitter');
+var Emitter = require("component~emitter@1.1.2");
 
 // Global Context
 
@@ -1485,15 +1354,16 @@ XMLHttpRequest.prototype.getAllResponseHeaders = function() {
 };
 
 });
-require.register("superagent/index.js", function(exports, require, module){
+
+require.register("superagent", function (exports, module) {
 
 // patch global scope with web XHR polyfill
 
-require('xhrpoly');
+require("tipm~xhrpoly@master");
 
 //expose superagent
 
-var Agent = module.exports = require('superagent');
+var Agent = module.exports = require("visionmedia~superagent@0.17.0");
 
 /**
  * attach file to Request
@@ -1519,27 +1389,4 @@ Agent.Request.prototype.attach = function(name, path, filename) {
 
 
 
-
-
-
-require.alias("visionmedia-superagent/lib/client.js", "superagent/deps/superagent/lib/client.js");
-require.alias("visionmedia-superagent/lib/client.js", "superagent/deps/superagent/index.js");
-require.alias("visionmedia-superagent/lib/client.js", "superagent/index.js");
-require.alias("component-emitter/index.js", "visionmedia-superagent/deps/emitter/index.js");
-
-require.alias("component-reduce/index.js", "visionmedia-superagent/deps/reduce/index.js");
-
-require.alias("visionmedia-superagent/lib/client.js", "visionmedia-superagent/index.js");
-require.alias("tipm-xhrpoly/index.js", "superagent/deps/xhrpoly/index.js");
-require.alias("tipm-xhrpoly/index.js", "superagent/deps/xhrpoly/index.js");
-require.alias("tipm-xhrpoly/index.js", "xhrpoly/index.js");
-require.alias("component-emitter/index.js", "tipm-xhrpoly/deps/emitter/index.js");
-
-require.alias("tipm-xhrpoly/index.js", "tipm-xhrpoly/index.js");
-require.alias("superagent/index.js", "superagent/index.js");if (typeof exports == "object") {
-  module.exports = require("superagent");
-} else if (typeof define == "function" && define.amd) {
-  define([], function(){ return require("superagent"); });
-} else {
-  this["superagent"] = require("superagent");
-}})();
+if (typeof exports == "object") {  module.exports = require("superagent");} else if (typeof define == "function" && define.amd) {  define([], function(){ return require("superagent"); });} else {  this["superagent"] = require("superagent");}})()

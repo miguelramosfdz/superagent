@@ -3,27 +3,30 @@
 
   Superagent Better XHR for Titanium.
 
+  [![Gittip](http://img.shields.io/gittip/euforic.png)](https://www.gittip.com/euforic/)
+
 ## Installation
 
   Install with [component(1)](http://component.io):
 
     $ component install tipm/superagent
 
-  Standalone install
-   - copy `superagent.js` to your project
-   - require like normal `var request = require('path/to/superagent.js')`
+  For standalone version just copy `superagent.js` into your project and `require('superagent')`
+
 
 ## API
+
 see [SuperAgent Docs Site](http://visionmedia.github.io/superagent/)
 
 ## Credit
+
 Based on [superagent](https://github.com/visionmedia/superagent) with a XHR polyfill for Titanium.
 
 ## License
 
   The MIT License (MIT)
 
-  Copyright (c) 2014 <copyright holders>
+  Copyright (c) 2014 Christian Sullivan <cs@bodhi5.com>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

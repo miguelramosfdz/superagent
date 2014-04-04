@@ -9,6 +9,7 @@
     "tipm/xhrpoly": "*"
   },
   "development": {},
+  "platform": ["ios", "android"],
   "license": "MIT",
   "main": "index.js",
   "scripts": [
