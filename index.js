@@ -16,12 +16,12 @@ var Agent = module.exports = require('superagent');
 
 Agent.Request.prototype.attach = function(name, path, filename) {
   if (filename) { console.warn('Setting upload\'s filename is currently not supported'); }
+  if ('string' !== typeof path) throw new Error('A form field name (String) and file path (String) is required.');
 
   var file = Ti.Filesystem.getFile(path);
   var attachment = {};
   attachment[name] = file.read();
 
-  this.type('multipart/form-data');
   this.send(attachment);
 
   return this;

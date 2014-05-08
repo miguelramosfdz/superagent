@@ -13,7 +13,7 @@ function require(name) {
   var module = require.modules[name];
   if (!module) throw new Error('failed to require "' + name + '"');
 
-  if (module.definition) {
+  if (!('exports' in module) && typeof module.definition === 'function') {
     module.client = module.component = true;
     module.definition.call(this, module.exports = {}, module);
     delete module.definition;
@@ -55,7 +55,6 @@ require.define = function (name, exports) {
     exports: exports
   };
 };
-
 require.register("component~emitter@1.1.2", function (exports, module) {
 
 /**
@@ -251,7 +250,7 @@ module.exports = function(arr, fn, initial){
 };
 });
 
-require.register("visionmedia~superagent@0.17.0", function (exports, module) {
+require.register("visionmedia~superagent@0.18.0", function (exports, module) {
 /**
  * Module dependencies.
  */
@@ -670,13 +669,13 @@ Response.prototype.setStatusProperties = function(status){
 Response.prototype.toError = function(){
   var req = this.req;
   var method = req.method;
-  var path = req.path;
+  var url = req.url;
 
-  var msg = 'cannot ' + method + ' ' + path + ' (' + this.status + ')';
+  var msg = 'cannot ' + method + ' ' + url + ' (' + this.status + ')';
   var err = new Error(msg);
   err.status = this.status;
   err.method = method;
-  err.path = path;
+  err.url = url;
 
   return err;
 };
@@ -899,6 +898,51 @@ Request.prototype.query = function(val){
 };
 
 /**
+ * Write the field `name` and `val` for "multipart/form-data"
+ * request bodies.
+ *
+ * ``` js
+ * request.post('/upload')
+ *   .field('foo', 'bar')
+ *   .end(callback);
+ * ```
+ *
+ * @param {String} name
+ * @param {String|Blob|File} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.field = function(name, val){
+  if (!this._formData) this._formData = new FormData();
+  this._formData.append(name, val);
+  return this;
+};
+
+/**
+ * Queue the given `file` as an attachment to the specified `field`,
+ * with optional `filename`.
+ *
+ * ``` js
+ * request.post('/upload')
+ *   .attach(new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
+ *   .end(callback);
+ * ```
+ *
+ * @param {String} field
+ * @param {Blob|File} file
+ * @param {String} filename
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.attach = function(field, file, filename){
+  if (!this._formData) this._formData = new FormData();
+  this._formData.append(field, file, filename);
+  return this;
+};
+
+/**
  * Send `data`, defaulting the `.type()` to "json" when
  * an object is given.
  *
@@ -1048,7 +1092,7 @@ Request.prototype.end = function(fn){
   var xhr = this.xhr = getXHR();
   var query = this._query.join('&');
   var timeout = this._timeout;
-  var data = this._data;
+  var data = this._formData || this._data;
 
   // store callback
   this._callback = fn || noop;
@@ -1363,7 +1407,7 @@ require("tipm~xhrpoly@master");
 
 //expose superagent
 
-var Agent = module.exports = require("visionmedia~superagent@0.17.0");
+var Agent = module.exports = require("visionmedia~superagent@0.18.0");
 
 /**
  * attach file to Request
@@ -1374,12 +1418,12 @@ var Agent = module.exports = require("visionmedia~superagent@0.17.0");
 
 Agent.Request.prototype.attach = function(name, path, filename) {
   if (filename) { console.warn('Setting upload\'s filename is currently not supported'); }
+  if ('string' !== typeof path) throw new Error('A form field name (String) and file path (String) is required.');
 
   var file = Ti.Filesystem.getFile(path);
   var attachment = {};
   attachment[name] = file.read();
 
-  this.type('multipart/form-data');
   this.send(attachment);
 
   return this;
@@ -1387,6 +1431,11 @@ Agent.Request.prototype.attach = function(name, path, filename) {
 
 });
 
-
-
-if (typeof exports == "object") {  module.exports = require("superagent");} else if (typeof define == "function" && define.amd) {  define([], function(){ return require("superagent"); });} else {  this["superagent"] = require("superagent");}})()
+if (typeof exports == "object") {
+  module.exports = require("superagent");
+} else if (typeof define == "function" && define.amd) {
+  define([], function(){ return require("superagent"); });
+} else {
+  this["superagent"] = require("superagent");
+}
+})()
